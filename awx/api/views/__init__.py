@@ -1184,7 +1184,7 @@ class UserRolesList(SubListAttachDetachAPIView):
             if not role.content_object.organization and not request.user.is_superuser:
                 data = dict(msg=_("You cannot grant private credential access to another user"))
                 return Response(data, status=status.HTTP_400_BAD_REQUEST)
-
+        logger.warning(f'ROLE: {role}')
         return super(UserRolesList, self).post(request, *args, **kwargs)
 
     def check_parent_access(self, parent=None):

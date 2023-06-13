@@ -1,10 +1,13 @@
 # Copyright (c) 2016 Ansible, Inc.
 # All Rights Reserved
+import logging
 
 # Django
 from django.core.management.base import BaseCommand
 from django.core.management.base import CommandError
 from django.contrib.auth.models import User
+
+logger = logging.getLogger('awx.api.generics')
 
 
 class UpdatePassword(object):
@@ -18,6 +21,7 @@ class UpdatePassword(object):
             u.set_password(password)
             u.save()
             changed = True
+        logger.info(f'Password changed for user: {username}')
         return changed
 
 
@@ -36,4 +40,5 @@ class Command(BaseCommand):
         res = cp.update_password(options['username'], options['password'])
         if res:
             return "Password updated"
+            logger.info(f'Password changed for user: {username}')
         return "Password not updated"

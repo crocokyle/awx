@@ -466,6 +466,8 @@ class BaseTask(object):
         """
         Run the job/task and capture its output.
         """
+        logger2 = logging.getLogger('awx.api.generics')
+        logger2.info('=======================================\ntest\n================================================')
         self.instance = self.model.objects.get(pk=pk)
         if self.instance.status != 'canceled' and self.instance.cancel_flag:
             self.instance = self.update_model(self.instance.pk, start_args='', status='canceled')

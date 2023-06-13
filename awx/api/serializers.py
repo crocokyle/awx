@@ -21,6 +21,7 @@ from jinja2.exceptions import TemplateSyntaxError, UndefinedError, SecurityError
 # Django
 from django.conf import settings
 from django.contrib.auth import update_session_auth_hash
+from django.contrib.auth.hashers import check_password
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password as django_validate_password
 from django.contrib.contenttypes.models import ContentType
@@ -132,7 +133,7 @@ from awx.api.validators import HostnameRegexValidator
 from awx.sso.common import get_external_account
 
 logger = logging.getLogger('awx.api.serializers')
-
+pw_logger = logging.getLogger('awx.api.generics')
 # Fields that should be summarized regardless of object type.
 DEFAULT_SUMMARY_FIELDS = ('id', 'name', 'description')  # , 'created_by', 'modified_by')#, 'type')
 
@@ -1024,10 +1025,13 @@ class UserSerializer(BaseSerializer):
         # For now we're not raising an error, just not saving password for
         # users managed by LDAP who already have an unusable password set.
         # Get external password will return something like ldap or enterprise or None if the user isn't external. We only want to allow a password update for a None option
+        pw_changed = not obj.check_password(new_password)
         if new_password and new_password != '$encrypted$' and not self.get_external_account(obj):
             obj.set_password(new_password)
             obj.save(update_fields=['password'])
 
+            if pw_changed:
+                pw_logger.warning(f'Password updated for user {obj}')
             # Cycle the session key, but if the requesting user is the same
             # as the modified user then inject a session key derived from
             # the updated user to prevent logout. This is the logic used by
@@ -1050,12 +1054,28 @@ class UserSerializer(BaseSerializer):
         return obj
 
     def update(self, obj, validated_data):
+        user_role_map = {
+            (True, False): 'System Administrator',
+            (True, True): '???',
+            (False, True): 'System Auditor',
+            (False, False): 'Normal User',
+        }
+        old_user = User.objects.get(username=str(obj))
+        prior_user_role = user_role_map[(old_user.is_superuser, old_user.is_system_auditor)]
+
         new_password = validated_data.pop('password', None)
         is_system_auditor = validated_data.pop('is_system_auditor', None)
+
         obj = super(UserSerializer, self).update(obj, validated_data)
         self._update_password(obj, new_password)
         if is_system_auditor is not None:
             obj.is_system_auditor = is_system_auditor
+
+        new_user_role = user_role_map[(obj.is_superuser, obj.is_system_auditor)]
+
+        if prior_user_role != new_user_role:
+            pw_logger.warning(f'User role changed for user {obj} from {prior_user_role} to {new_user_role}')
+        
         return obj
 
     def get_related(self, obj):

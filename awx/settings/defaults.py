@@ -912,12 +912,13 @@ for name, config in handler_config.items():
     # Common log handler config. Don't define a level here, it's set by settings.LOG_AGGREGATOR_LEVEL
     LOGGING['handlers'][name] = {'filters': ['dynamic_level_filter', 'guid'], 'formatter': config.get('formatter', 'simple')}
 
-    if logging_mode == 'file':
+    if logging_mode == 'file' or logging_mode == 'stdout':
         LOGGING['handlers'][name]['class'] = 'logging.handlers.WatchedFileHandler'
         LOGGING['handlers'][name]['filename'] = os.path.join(LOG_ROOT, config['filename'])
+        LOGGING['handlers']['tower_warnings']['level'] = 'DEBUG'
 
-    if logging_mode == 'stdout':
-        LOGGING['handlers'][name]['class'] = 'logging.NullHandler'
+    #if logging_mode == 'stdout':
+    #    LOGGING['handlers'][name]['class'] = 'logging.NullHandler'
 
 # Prevents logging to stdout on traditional VM installs
 if logging_mode == 'file':
